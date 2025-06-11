@@ -525,7 +525,7 @@ check_logfile(void)
 
 /* Hack because there are 2 APIs to strerror_r()  */
 void ntp_strerror_r(int errnum, char *buf, size_t buflen) {
-#ifdef STRERROR_CHAR
+#ifdef _GNU_SOURCE
 	char *answer = strerror_r(errnum, buf, buflen);
 	if (answer != buf) {
 		strlcpy(buf, answer, buflen);

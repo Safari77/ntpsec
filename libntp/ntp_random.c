@@ -17,12 +17,6 @@
 #include "ntp_stdlib.h"
 #include "ntp_syslog.h"
 
-#ifndef PRAND_BUF_LEN
-#define PRAND_BUF_LEN 4096l
-#endif
-static uint8_t prand_buffer[PRAND_BUF_LEN];
-static size_t prand_burned = PRAND_BUF_LEN;
-
 void
 ntp_random_buf (void* out, size_t len)
 {
