@@ -233,9 +233,8 @@ void nts_make_cookie_key(void) {
 	for (int i=nts_nKeys-1; i>0; i--) {
 	  nts_keys[i] = nts_keys[i-1];
 	}
-	ntp_RAND_priv_bytes(nts_keys[0].K, K_length);
-	ntp_RAND_bytes((uint8_t *)&nts_keys[0].I, sizeof(nts_keys[0].I));
-	return;
+	ntp_random_buf(nts_keys[0].K, K_length);
+	ntp_random_buf((uint8_t *)&nts_keys[0].I, sizeof(nts_keys[0].I));
 }
 
 bool nts_write_cookie_keys(void) {
@@ -323,7 +322,7 @@ int nts_make_cookie(uint8_t *cookie,
 	finger += sizeof(nts_keys[0].I);
 
 	nonce = finger;
-	ntp_RAND_bytes(finger, NONCE_LENGTH);
+	ntp_random_buf(finger, NONCE_LENGTH);
 	finger += NONCE_LENGTH;
 
 	used = finger-cookie;

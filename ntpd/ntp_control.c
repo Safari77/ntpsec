@@ -2631,7 +2631,7 @@ static uint32_t derive_nonce(
 	}
 
 	if (current_time >= next_salt_update) {
-		ntp_RAND_bytes(&salt[0], sizeof(salt));
+		ntp_random_buf(salt, sizeof(salt));
 		next_salt_update = current_time+SECSPERHR;
 		if (0) msyslog(LOG_INFO, "derive_nonce: update salt, %lld", \
 			(long long)next_salt_update);
@@ -2722,10 +2722,11 @@ send_random_tag_value(
 	int	indx
 	)
 {
-	int	noise;
+	uint32_t noise;
 	char	buf[32];
 
-	noise = ntp_random();
+	/* coverity[DC.WEAK_CRYPTO] */
+	noise = ntp_random_u32();
 	buf[0] = 'a' + noise % 26;
 	noise >>= 5;
 	buf[1] = 'a' + noise % 26;
@@ -2768,7 +2769,7 @@ send_mru_entry(
 
 	remaining = COUNTOF(sent);
 	ZERO(sent);
-	noise = (uint32_t)ntp_random();
+	noise = ntp_random_u32();
 	while (remaining > 0) {
 #ifdef USE_RANDOMIZE_RESPONSES
 	 	which = (noise & 7) % COUNTOF(sent);
@@ -3299,18 +3300,18 @@ send_ifstats_entry(
 	char	tag[32];
 	uint8_t	sent[IFSTATS_FIELDS]; /* 9 tag=value pairs */
 	int	noisebits;
-	uint32_t noise;
+	uint32_t noise = 0;
 	unsigned int	which = 0;
 	unsigned int	remaining;
 	const char *pch;
 
 	remaining = COUNTOF(sent);
 	ZERO(sent);
-	noise = 0;
 	noisebits = 0;
 	while (remaining > 0) {
 		if (noisebits < 4) {
-			noise = (uint32_t)ntp_random();
+			/* coverity[DC.WEAK_CRYPTO] */
+			noise = ntp_random_u32();
 			noisebits = 31;
 		}
 #ifdef USE_RANDOMIZE_RESPONSES
@@ -3461,7 +3462,7 @@ send_restrict_entry(
 	char		tag[32];
 	uint8_t		sent[RESLIST_FIELDS]; /* 4 tag=value pairs */
 	int		noisebits;
-	uint32_t		noise;
+	uint32_t		noise = 0;
 	unsigned int		which = 0;
 	unsigned int		remaining;
 	sockaddr_u	addr;
@@ -3474,11 +3475,11 @@ send_restrict_entry(
 	sockaddrs_from_restrict_u(&addr, &mask, pres, ipv6);
 	remaining = COUNTOF(sent);
 	ZERO(sent);
-	noise = 0;
 	noisebits = 0;
 	while (remaining > 0) {
 		if (noisebits < 2) {
-			noise = (uint32_t)ntp_random();
+			/* coverity[DC.WEAK_CRYPTO] */
+			noise = ntp_random_u32();
 			noisebits = 31;
 		}
 #ifdef USE_RANDOMIZE_RESPONSES

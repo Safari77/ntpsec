@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <openssl/ssl.h>
 #include <openssl/evp.h>
+#include <openssl/rand.h>
 #include "hack-ancient-openssl.h"
 
 #if OPENSSL_VERSION_NUMBER > 0x20000000L
@@ -51,7 +52,12 @@ ssl_init(void)
 
 	/* More initialization help for seccomp */
 	/* RAND_poll in OpenSSL on Raspbian needs get{u,g,eu,eg}id() */
-	ntp_RAND_bytes(&dummy, 1);
+	if (RAND_bytes(&dummy, sizeof(dummy)) != 1) {
+		msyslog(LOG_ERR, "ERR: RAND_bytes failed");
+		exit(1);
+	}
+	// After this getrandom does not block (entropy pool is initialized)
+	ntp_random_buf(&dummy, sizeof(dummy));
 
 	digest_ctx = EVP_MD_CTX_new();
 #if OPENSSL_VERSION_NUMBER > 0x20000000L

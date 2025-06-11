@@ -458,7 +458,7 @@ static bool check_early_restrictions(
 	int mode = PKT_MODE(rbufp->recv_buffer[0]);
 	return (
 	  (restrict_mask & RES_IGNORE) ||
-	  ((restrict_mask & RES_FLAKE) && (double)ntp_random() / UINT32_MAX < .1) ||
+	  ((restrict_mask & RES_FLAKE) && (ntp_random_u32() < (UINT32_MAX / 10))) ||
 	  ((restrict_mask & RES_NOQUERY) && (MODE_CONTROL == mode)) ||
 	  ((restrict_mask & RES_NOSERVE) && (MODE_CONTROL != mode)) ||
 	  ((restrict_mask & RES_VERSION) &&
@@ -1260,7 +1260,7 @@ poll_update(
 #endif /* REFCLOCK */
 			/* add a bit of randomess to next polling time
 			 * to disperse traffic */
-			next = ((0x1000UL | (ntp_random() & 0x0ff)) <<
+			next = ((0x1000UL | (ntp_random_u32() & 0x0ff)) <<
 			    hpoll) >> 12;
 		next += peer->outdate;
 		if (next > utemp)
@@ -2181,8 +2181,8 @@ peer_xmit(
 		xpkt.reftime = htonl_fp(0);
 		xpkt.org = htonl_fp(0);
 		xpkt.rec = htonl_fp(0);
-		ntp_RAND_bytes((unsigned char *)&peer->org_rand,
-			sizeof(peer->org_rand));
+		ntp_random_buf((unsigned char *)&peer->org_rand,
+				sizeof(peer->org_rand));
 		get_systime(&peer->org_ts);	/* as late as possible */
 	} else {
 		xpkt.li_vn_mode = PKT_LI_VN_MODE(

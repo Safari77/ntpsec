@@ -64,7 +64,7 @@ int extens_client_send(struct peer *peer, struct pkt *xpkt) {
 	buf.left = MAX_EXT_LEN;
 
 	/* UID */
-	ntp_RAND_bytes(peer->nts_state.UID, NTS_UID_LENGTH);
+	ntp_random_buf(peer->nts_state.UID, NTS_UID_LENGTH);
 	ex_append_record_bytes(&buf, Unique_Identifier,
 			       peer->nts_state.UID, NTS_UID_LENGTH);
 
@@ -90,7 +90,7 @@ int extens_client_send(struct peer *peer, struct pkt *xpkt) {
 	append_uint16(&buf, NONCE_LENGTH);
 	append_uint16(&buf, CMAC_LENGTH);
 	nonce = buf.next;
-	ntp_RAND_bytes(nonce, NONCE_LENGTH);
+	ntp_random_buf(nonce, NONCE_LENGTH);
 	buf.next += NONCE_LENGTH;
 	buf.left -= NONCE_LENGTH;
 	left = buf.left;
@@ -296,7 +296,7 @@ int extens_server_send(struct ntspacket_t *ntspacket, struct pkt *xpkt) {
 	append_uint16(&buf, plainleng+CMAC_LENGTH);
 
 	nonce = buf.next;
-	ntp_RAND_bytes(nonce, NONCE_LENGTH);
+	ntp_random_buf(nonce, NONCE_LENGTH);
 	buf.next += NONCE_LENGTH;
 	buf.left -= NONCE_LENGTH;
 

@@ -283,6 +283,10 @@ def configure(ctx):
         ctx.env.LDFLAGS += ["-lssp_nonshared"]
 
     cc_test_flags = [
+        ('f_stack_protector_all', '-fstack-protector-all'),
+        ('fortify_source', '-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3'),
+        ('f_stack_clash', '-fstack-clash-protection'),
+        ('fcf_protection', '-fcf-protection=full'),
         ('PIC', '-fPIC'),
         ('PIE', '-pie -fPIE'),
         # this quiets most of macOS warnings on -fpie
@@ -470,6 +474,12 @@ int main(int argc, char **argv) {
     #     ctx.env.CFLAGS = ['-Wsign-conversion'] + ctx.env.CFLAGS
     if ctx.env.HAS_f_stack_protector_all:
         ctx.env.CFLAGS = ['-fstack-protector-all'] + ctx.env.CFLAGS
+    if ctx.env.HAS_fortify_source:
+        ctx.env.CFLAGS = ['-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3'] + ctx.env.CFLAGS
+    if ctx.env.HAS_f_stack_clash:
+        ctx.env.CFLAGS = ['-fstack-clash-protection'] + ctx.env.CFLAGS
+    if ctx.env.HAS_fcf_protection:
+        ctx.env.CFLAGS = ['-fcf-protection=full'] + ctx.env.CFLAGS
 
     # old gcc takes -z,relro, but then barfs if -fPIE available and used.
     # ("relro", "-Wl,-z,relro"), # marks some sections read only

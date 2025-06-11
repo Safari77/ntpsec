@@ -156,6 +156,8 @@ lex_open(
 			msyslog(LOG_ERR, "CONFIG: failed to open \'%s\': %s",
 				path, strerror(errno));
 			stream = NULL;
+			msyslog(LOG_ERR, "CONFIG: failed to open \'%s\': %s",
+				path, strerror(errno));
 		}
 	}
 	return stream;

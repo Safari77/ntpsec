@@ -781,7 +781,7 @@ main(
 	}
 #endif
 
-     	/* use this to test if option setting gives expected results */
+	/* use this to test if option setting gives expected results */
 	if (dumpopts) {
 	    if (explicit_config) {
 		fprintf(stdout, "conffile \"%s\";\n", explicit_config);

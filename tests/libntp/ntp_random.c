@@ -56,7 +56,7 @@ TEST(random, random_bytes) {
 	 */
 	for (int i=0; i<99; i++) {
 		unsigned char sample[BYTES];
-		ntp_RAND_bytes(&sample[0], BYTES);
+		ntp_random_buf(&sample[0], BYTES);
 		for (int j=0; j<BYTES; j++) {
 			zeros[j] &= ~sample[j];
 			ones[j] |= sample[j];
