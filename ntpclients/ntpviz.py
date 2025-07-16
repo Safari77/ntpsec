@@ -48,6 +48,7 @@ import binascii
 import collections
 import csv
 import datetime
+import errno
 import math
 import re
 import os
@@ -74,8 +75,8 @@ if sys.version_info[0] == 2:
 
     def open(file, mode='r', buffering=-1, encoding=None, errors=None):
         "Redefine open()"
-        return(codecs.open(filename=file, mode=mode, encoding=encoding,
-               errors=errors, buffering=buffering))
+        return (codecs.open(filename=file, mode=mode, encoding=encoding,
+                errors=errors, buffering=buffering))
 
 # believe it or not, Python has no way to make a simple constant!
 MS_PER_S = 1e3          # milliseconds per second
@@ -390,7 +391,7 @@ class VizStats(ntp.statfiles.NTPStats):
 
         self.table = '''\
 <tr>
- <td style="text-align:left;">%s</td>
+ <td>%s</td>
 </tr>
 ''' % self.table
 
@@ -448,7 +449,7 @@ def gnuplot(template, outfile=None):
     try:
         rcode = subprocess.call(['gnuplot', tmp_file.name], stdout=out)
     except OSError as e:
-        if e.errno == os.errno.ENOENT:
+        if e.errno == errno.ENOENT:
             # gnuplot not found
             sys.stderr.write("ntpviz: ERROR: gnuplot not found in path\n")
         else:
@@ -1567,14 +1568,17 @@ Python by ESR, concept and gnuplot code by Dan Drown.
         # fit in 1388x768 browser
         # in 2016 this is 42% of all browsers
         args.img_size = '1340,720'
+    img_w, img_h = args.img_size.split(',')
 
     # figure out plot image file extension
-    term_map = {'gif': '.gif',
-                'jpeg': '.jpg',
-                'pngcairo': '.png',
-                'png': '.png',
-                'svg': '.svg',
-               }
+    term_map = {
+        'gif': '.gif',
+        'jpeg': '.jpg',
+        'pngcairo': '.png',
+        'png': '.png',
+        'svg': '.svg',
+        'webp': '.webp',
+    }
     if args.terminal in term_map:
         args.img_ext = term_map[args.terminal]
     else:
@@ -1785,6 +1789,9 @@ thead {
 tbody tr {
     vertical-align: top;
 }
+tbody td:first-child {
+    text-align: left;
+}
 tbody tr:nth-child(6n+4),
 tbody tr:nth-child(6n+5),
 tbody tr:nth-child(6n+6) {
@@ -1797,12 +1804,19 @@ tbody tr:nth-child(6n+6) {
 .section .site-title:visited {
     color: #000000;
 }
+.graph {
+    border: 0;
+    width: %(img_w)spx;
+    height: %(img_h)spx
+}
 </style>
 </head>
 <body>
 <div style="width:910px">
 <a href='https://www.ntpsec.org/'>
-<img src="ntpsec-logo.png" alt="NTPsec" style="float:left;margin:20px 70px;">
+<img src="ntpsec-logo.png" alt="NTPsec"
+    style="float:left;margin:20px 70px;border:0;width:64px;height:74px"
+>
 </a>
 <div>
 <h1 style="margin-bottom:10px;">%(title)s</h1>
@@ -1940,14 +1954,13 @@ ntpviz</a>, part of the <a href="https://www.ntpsec.org/">NTPsec project</a>
 </div>
 <div style="float:left;margin-left:350px;">
     <a href="https://validator.w3.org/nu/">
-    <img src="https://www.w3.org/html/logo/downloads/HTML5_Logo_32.png"
-        alt="html 5">
+        <img src="https://www.w3.org/html/logo/downloads/HTML5_Logo_32.png"
+            alt="html 5" style="border:0;width:32px;height:32px">
     </a>
 &nbsp;&nbsp;
     <a href="https://jigsaw.w3.org/css-validator/check/referer">
-        <img style="border:0;width:88px;height:31px"
-            src="https://jigsaw.w3.org/css-validator/images/vcss"
-            alt="Valid CSS!" />
+        <img src="https://jigsaw.w3.org/css-validator/images/vcss"
+            alt="Valid CSS!" style="border:0;width:88px;height:31px">
     </a>
 </div>
 <div style="clear:both;"></div>
@@ -1955,7 +1968,8 @@ ntpviz</a>, part of the <a href="https://www.ntpsec.org/">NTPsec project</a>
 </body>
 </html>
 '''
-    imagewrapper = "<img src='%%s%s' alt='%%s plot'>\n" % args.img_ext
+    imagewrapper = ("<img src='%%s%s' alt='%%s plot' class='graph'>\n" %
+                    args.img_ext)
 
     # buffer the index.html output so the index.html is not empty
     # during the run
