@@ -13,6 +13,7 @@ def build(ctx):
     if not ctx.env.DISABLE_NTS:
         util.append('aes-siv-timing')
         util.append('aead-timing')
+        util.append('tls-tester')
 
     for name in util:
         ctx(
@@ -20,7 +21,7 @@ def build(ctx):
             features="c cprogram",
             includes=[ctx.bldnode.parent.abspath(), "../include", "../libaes_siv"],
             source=[name + ".c"],
-            use="ntp M CRYPTO RT PTHREAD aes_siv",
+            use="ntp M CRYPTO SSL RT PTHREAD aes_siv",
             install_path=None,
         )
 

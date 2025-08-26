@@ -20,14 +20,14 @@
 void
 ntp_random_buf (void* out, size_t len)
 {
-        if (len > 256) {
-                msyslog(LOG_ERR, "ERR: ntp_random_buf requested for %zu bytes\n", len);
-                exit(1);
-        }
-        if (getrandom(out, len, 0) != (ssize_t)len) {
-                msyslog(LOG_ERR, "ERR: ntp_random_buf failed: %s\n", strerror(errno));
-                exit(1);
-        }
+	if (len > 256) {
+		msyslog(LOG_ERR, "ERR: ntp_random_buf requested for %zu bytes\n", len);
+		exit(1);
+	}
+	if (getrandom(out, len, 0) != (ssize_t)len) {
+		msyslog(LOG_ERR, "ERR: ntp_random_buf failed: %s\n", strerror(errno));
+		exit(1);
+	}
 }
 
 uint32_t ntp_random_u32(void)
