@@ -25,6 +25,14 @@ import socket
 import sys
 import time
 
+# The BrokenPipeError doesn't exist in Python 2, but the problem that requires
+# catching it also doesn't seem to exist in Python 2, so just make it a dummy
+# in Python 2.
+try:
+    BrokenPipeError
+except NameError:
+    BrokenPipeError = None
+
 try:
     import ntp.control
     import ntp.ntpc
@@ -1324,7 +1332,7 @@ usage: config_from_file <configuration filename>
         for entry in entries:
             self.say(self.formatter.summary(entry) + "\n")
 
-    def do_noflake(self):
+    def do_noflake(self, _line):
         """Disables the dropping of control packets by ntpq for testing."""
         self.session.flakey = False
 
