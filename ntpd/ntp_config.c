@@ -30,6 +30,7 @@
 #include "ntp_assert.h"
 #include "ntp_dns.h"
 #include "ntp_auth.h"
+#include "nts2.h"
 
 /*
  * [Classic Bug 467]: Some linux headers collide with CONFIG_PHONE and
@@ -628,6 +629,13 @@ create_peer_node(
 			break;
 
 		case T_Aead:
+#ifndef DISABLE_NTS
+		    if (NO_AEAD == nts_string_to_aead(option->value.s)) {
+		      msyslog(LOG_ERR,
+			"CONFIG: Invalid AEAD parameter: %s", option->value.s);
+			break;
+		    }
+#endif
 		    my_node->ctl.nts_cfg.aead = option->value.s;
 		    break;
 
@@ -1955,9 +1963,14 @@ config_nts(
 			INSIST(0);
 			break;
 		case T_Aead:
-			free((void *)(intptr_t)ntsconfig.aead);
-			ntsconfig.aead = estrdup(nts->value.s);
+		  if (NO_AEAD == nts_string_to_aead(nts->value.s)) {
+		    msyslog(LOG_ERR,
+			"CONFIG: Invalid AEAD parameter: %s", nts->value.s);
 			break;
+		  }
+		  free((void *)(intptr_t)ntsconfig.aead);
+		  ntsconfig.aead = estrdup(nts->value.s);
+		  break;
 
 		case T_Ca:
 			free((void *)(intptr_t)ntsconfig.ca);

@@ -893,8 +893,8 @@ transmit(
 	 */
 	if (peer->cast_flags & MDF_POOL) {
 		peer->outdate = current_time;
-		if ((peer_associations <= 2 * sys_maxclock) &&
-		    (peer_associations < sys_maxclock ||
+		if ((peer_active <= 2 * sys_maxclock) &&
+		    (peer_active < sys_maxclock ||
 		     sys_survivors < sys_minclock))
 			if (!dns_probe(peer)) {
 			    /* DNS thread busy, try again soon */
@@ -977,14 +977,19 @@ transmit(
 			hpoll++;
 			/* ephemeral: no FLAG_CONFIG nor FLAG_PREEMPT */
 			if (!(peer->cfg.flags & (FLAG_CONFIG | FLAG_PREEMPT))) {
+// I don't think this happens.  Hal, 2026-Jan-11
+				msyslog(LOG_INFO, "Drop ephemeral %s",
+					socktoa(&peer->srcadr));
 				report_event(PEVNT_RESTART, peer, "timeout");
 				peer_clear(peer, "TIME", false);
 				unpeer(peer);
 				return;
 			}
 			if ((peer->cfg.flags & FLAG_PREEMPT) &&
-			    (peer_associations > sys_maxclock) &&
+			    (peer_active > sys_maxclock) &&
 			    score_all(peer)) {
+				msyslog(LOG_INFO, "Drop extra pool server %s",
+					socktoa(&peer->srcadr));
 				report_event(PEVNT_RESTART, peer, "timeout");
 				peer_clear(peer, "TIME", false);
 				unpeer(peer);
@@ -1329,7 +1334,7 @@ peer_clear(
 	 */
 	peer->nextdate = peer->update = peer->outdate = current_time;
 	if (initializing1) {
-		peer->nextdate += (unsigned long)peer_associations;
+		peer->nextdate += (unsigned long)peer_active;
 	} else {
 	    /*
 	     * Randomizing the next poll interval used to be done with
