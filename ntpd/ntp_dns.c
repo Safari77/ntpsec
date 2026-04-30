@@ -80,6 +80,7 @@ bool dns_probe(struct peer* pp)
 	  msyslog(LOG_ERR, "DNS: dns_probe: error from pthread_create: %s, %s",
 	      hostname, strerror(rc));
           pthread_sigmask(SIG_SETMASK, &saved_sig_mask, NULL);
+          active = NULL;
 	  return true;  /* don't try again */
 	}
         pthread_sigmask(SIG_SETMASK, &saved_sig_mask, NULL);
@@ -103,7 +104,8 @@ void dns_check(void)
 	rc = pthread_join(worker, NULL);
 	if (0 != rc) {
 		msyslog(LOG_ERR, "DNS: dns_check: join failed %s", strerror(rc));
-		return;  /* leaves active set */
+		active = NULL;
+		return;
 	}
 
 #ifndef DISABLE_NTS
@@ -201,4 +203,3 @@ static void* dns_lookup(void* arg)
 	 */
 	return (void *)NULL;
 }
-
