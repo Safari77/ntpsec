@@ -5,7 +5,10 @@ pages:
     - echo /tmp/docbot-local/lib/python3.12/site-packages > /usr/lib/python3.12/site-packages/ntpsec.pth
     - mkdir -p public/latest
     - python3 ./waf configure --prefix=/tmp/docbot-local --htmldir=`pwd`/public/latest/ --enable-doc --disable-manpage build install
-    - tar -C /tmp/docbot-local/share/doc/ntpsec/ -cf - .|tar -C public/latest/ -xf -
+    # tar to work around waf ignoring GNU dirs
+    - \[ -d "/tmp/docbot-local/share/doc/ntpsec/" \]
+      && tar -C /tmp/docbot-local/share/doc/ntpsec/ -cf - .
+      |tar -C public/latest/ -xf -
     - cp www/favicon.ico public
     - cp docs/top.html.in public/index.html
     - cp docs/top-asciidoc.css public/asciidoc.css
@@ -60,7 +63,7 @@ alpine-edge-basic:
   <<: *job_definition
   image: $CI_REGISTRY/ntpsec/ntpsec/alpine-edge
   script:
-    - echo /usr/local/lib/python3.12/site-packages > /usr/lib/python3.12/site-packages/ntpsec.pth
+    - echo /usr/local/lib/python3.14/site-packages > /usr/lib/python3.14/site-packages/ntpsec.pth
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
     - python3 ./waf install
     - python3 ./waf uninstall
@@ -385,7 +388,8 @@ gentoo-refclocks:
 coverity-scan:
   image: $CI_REGISTRY/ntpsec/ntpsec/coverity
   script:
-    - curl -o /tmp/cov-analysis-linux64.tgz --form project=ntpsec --form token="${COVERITY_TOKEN}" https://scan.coverity.com/download/linux64
+    - curl -o /tmp/cov-analysis-linux64.tgz --form project=ntpsec --form token="${COVERITY_TOKEN}" https://scan.coverity.com/download/linux64 -D -
+    - file /tmp/cov-analysis-linux64.tgz | grep "gzip compressed data" || exit 255
     - tar zxf /tmp/cov-analysis-linux64.tgz
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all
     - cov-analysis-linux64-*/bin/cov-build --dir cov-int python3 ./waf build
@@ -395,6 +399,9 @@ coverity-scan:
     - gitlab-org
   rules:
     - if: $COVERITY_TOKEN
+  allow_failure:
+    exit_codes:
+      - 255
 
 macos-basic:
   <<: *job_definition
