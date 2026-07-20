@@ -37,6 +37,9 @@ build-alpine-seccomp:
 build-centos-latest:
   <<: *build_definition
 
+build-rocky:
+  <<: *build_definition
+
 build-clang:
   <<: *build_definition
 
@@ -81,6 +84,10 @@ build-ubuntu-latest:
   <<: *build_definition
 
 build-ubuntu-rolling:
+  <<: *build_definition
+
+build-ubuntu-devel:
+  allow_failure: true
   <<: *build_definition
 
 build-cross-armhf:

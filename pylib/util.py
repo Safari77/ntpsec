@@ -884,7 +884,7 @@ class PeerSummary:
                  debug=0, logfp=sys.stderr):
         self.displaymode = displaymode          # peers/apeers/opeers
         self.pktversion = pktversion            # interpretation of flash bits
-        self.showhostnames = showhostnames      # If false, display numeric IPs
+        self.showhostnames = showhostnames      # If False, display numeric IPs
         self.showunits = showunits              # If False show old style float
         self.wideremote = wideremote            # show wide remote names?
         self.debug = debug
@@ -1111,7 +1111,7 @@ class PeerSummary:
             ptype = 'b'
         elif hmode == ntp.magic.MODE_BROADCASTx:
             # broadcast or multicast server
-            if srcadr.startswith("224."):       # IANA multicast address prefix
+            if srcadr and srcadr.startswith("224."):  # IANA multicast address prefix
                 ptype = 'M'
             else:
                 ptype = 'B'
@@ -1120,7 +1120,7 @@ class PeerSummary:
                 ptype = 'l'     # local refclock
             elif dstadr_refid == "POOL":
                 ptype = 'p'     # pool
-            elif srcadr.startswith("224."):
+            elif srcadr and srcadr.startswith("224."):
                 ptype = 'a'     # manycastclient (compatibility with Classic)
             elif ntscookies > -1:
                 # FIXME: Will foo up if there are ever more than 9 cookies
@@ -1153,9 +1153,7 @@ class PeerSummary:
                 and srcadr != "0.0.0.0" \
                 and not srcadr.startswith("127.127") \
                 and srcadr != "::":
-            if self.showhostnames & 2 and 'srchost' in locals() and srchost:
-                clock_name = srchost
-            elif self.showhostnames & 1:
+            if self.showhostnames:
                 try:
                     if self.debug:
                         self.logfp.write("DNS lookup begins...\n")
@@ -1236,7 +1234,7 @@ class MRUSummary:
         self.debug = debug
         self.logfp = logfp
         self.now = None
-        self.showhostnames = showhostnames  # if & 1, display names
+        self.showhostnames = showhostnames  # if True, display names
         self.wideremote = wideremote
 
     header = " lstint avgint rstr r m v  count    score   drop rport remote address"
@@ -1272,7 +1270,7 @@ class MRUSummary:
             rscode = '.'
         (ip, port) = portsplit(entry.addr)
         try:
-            if not self.showhostnames & 1:  # if not & 1 display numeric IPs
+            if not self.showhostnames:  # if False display numeric IPs
                 dns = ip
             else:
                 dns = canonicalize_dns(ip)
