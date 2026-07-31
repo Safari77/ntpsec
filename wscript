@@ -290,10 +290,6 @@ def configure(ctx):
 # Looks interesting, but it breaks WAF checking
 #       ('w_everything', "-Weverything"),  # clang
     cc_test_flags = [
-        ('f_stack_protector_all', '-fstack-protector-all'),
-        ('fortify_source', '-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3'),
-        ('f_stack_clash', '-fstack-clash-protection'),
-        ('fcf_protection', '-fcf-protection=full'),
         ('PIC', '-fPIC'),
         ('PIE', '-pie -fPIE'),
         # this quiets most of macOS warnings on -fpie
@@ -435,67 +431,7 @@ int main(int argc, char **argv) {
             ('relro', "-Wl,-z,relro"),  # hardening, marks some read only,
             ]
 
-<<<<<<< HEAD
-    if ctx.env.HAS_unused:
-        ctx.env.CFLAGS = ['-Qunused-arguments'] + ctx.env.CFLAGS
-
-    # XXX: -flto currently breaks link of ntpd
-    if ctx.env.HAS_LTO and False:
-        ctx.env.CFLAGS = ["-flto"] + ctx.env.CFLAGS
-
-    # debug warnings that are not available with all compilers
-    if ctx.env.HAS_w_implicit_fallthru:
-        ctx.env.CFLAGS = ['-Wimplicit-fallthrough=3'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_suggest_attribute_const:
-        ctx.env.CFLAGS = ['-Wsuggest-attribute=const'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_suggest_attribute_noreturn:
-        ctx.env.CFLAGS = ['-Wsuggest-attribute=noreturn'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_suggest_attribute_pure:
-        ctx.env.CFLAGS = ['-Wsuggest-attribute=pure'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_format_security:
-        ctx.env.CFLAGS = ['-Wformat-security'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_format_signedness:
-        ctx.env.CFLAGS = ['-Wformat-signedness'] + ctx.env.CFLAGS
-    # should be before other -Wformat-* in CFLAGS
-    if ctx.env.HAS_w_format:
-        ctx.env.CFLAGS = ['-Wformat'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_float_equal:
-        ctx.env.CFLAGS = ['-Wfloat-equal'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_init_self:
-        ctx.env.CFLAGS = ['-Winit-self'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_write_strings:
-        ctx.env.CFLAGS = ['-Wwrite-strings'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_pointer_arith:
-        ctx.env.CFLAGS = ['-Wpointer-arith'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_invalid_pch:
-        ctx.env.CFLAGS = ['-Winvalid-pch'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_implicit_function_declaration:
-        ctx.env.CFLAGS = ['-Wimplicit-function-declaration'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_disabled_optimization:
-        ctx.env.CFLAGS = ['-Wdisabled-optimization'] + ctx.env.CFLAGS
-    # if ctx.env.HAS_w_cast_align:
-    #     ctx.env.CFLAGS = ['-Wcast-align'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_missing_declarations:
-        ctx.env.CFLAGS = ['-Wmissing-declarations'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_cast_qual:
-        ctx.env.CFLAGS = ['-Wcast-qual'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_packed:
-        ctx.env.CFLAGS = ['-Wpacked'] + ctx.env.CFLAGS
-    if ctx.env.HAS_w_shadow:
-        ctx.env.CFLAGS = ['-Wshadow'] + ctx.env.CFLAGS
-    # if ctx.env.HAS_w_sign_conversion:
-    #     ctx.env.CFLAGS = ['-Wsign-conversion'] + ctx.env.CFLAGS
-    if ctx.env.HAS_f_stack_protector_all:
-        ctx.env.CFLAGS = ['-fstack-protector-all'] + ctx.env.CFLAGS
-    if ctx.env.HAS_fortify_source:
-        ctx.env.CFLAGS = ['-U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3'] + ctx.env.CFLAGS
-    if ctx.env.HAS_f_stack_clash:
-        ctx.env.CFLAGS = ['-fstack-clash-protection'] + ctx.env.CFLAGS
-    if ctx.env.HAS_fcf_protection:
-        ctx.env.CFLAGS = ['-fcf-protection=full'] + ctx.env.CFLAGS
-=======
     ctx.env.CFLAGS = cc_flag_hits + ctx.env.CFLAGS
->>>>>>> upstream/master
 
     # old gcc takes -z,relro, but then barfs if -fPIE available and used.
     # ("relro", "-Wl,-z,relro"), # marks some sections read only
