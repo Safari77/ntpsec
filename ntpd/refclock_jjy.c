@@ -159,7 +159,7 @@ struct jjyunit {
         int     iLineCount ;
         int     year, month, day, hour, minute, second, msecond ;
         int     leapsecond ;
-        int     iTimestampCount ;   // TS-JJY01, TS-GPS01, Telephone-JJY
+        unsigned iTimestampCount ;   // TS-JJY01, TS-GPS01, Telephone-JJY
         int     iTimestamp [ MAX_TIMESTAMP ] ;  // Serial second ( 0 - 86399 )
 // LDISC_RAW only
         char    sRawBuf [ MAX_RAWBUF ] ;
@@ -363,24 +363,24 @@ struct  refclock refclock_jjy = {
 
 // Local constants definition for the clockstats messages
 
-#define JJY_CLOCKSTATS_MESSAGE_ECHOBACK                 "* Echoback"
-#define JJY_CLOCKSTATS_MESSAGE_IGNORE_REPLY             "* Ignore replay : [%s]"
-#define JJY_CLOCKSTATS_MESSAGE_OVER_MIDNIGHT_2          "* Over midnight : timestamp=%d, %d"
+#define JJY_CLOCKSTATS_MESSAGE_ECHOBACK          "* Echoback"
+#define JJY_CLOCKSTATS_MESSAGE_IGNORE_REPLY      "* Ignore replay : [%s]"
+#define JJY_CLOCKSTATS_MESSAGE_OVER_MIDNIGHT_2   "* Over midnight : timestamp=%d, %d"
 /* UNUSED
  * #define      JJY_CLOCKSTATS_MESSAGE_OVER_MIDNIGHT_3          "* Over midnight : timestamp=%d, %d, %d"
  */
-#define JJY_CLOCKSTATS_MESSAGE_TIMESTAMP_UNSURE         "* Unsure timestamp : %s"
-#define JJY_CLOCKSTATS_MESSAGE_LOOPBACK_DELAY           "* Loopback delay : %d.%03d mSec."
-#define JJY_CLOCKSTATS_MESSAGE_DELAY_ADJUST             "* Delay adjustment : %d mSec. ( valid=%hd/%d )"
-#define JJY_CLOCKSTATS_MESSAGE_DELAY_UNADJUST           "* Delay adjustment : None ( valid=%hd/%d )"
+#define JJY_CLOCKSTATS_MESSAGE_TIMESTAMP_UNSURE  "* Unsure timestamp : %s"
+#define JJY_CLOCKSTATS_MESSAGE_LOOPBACK_DELAY    "* Loopback delay : %d.%03d mSec."
+#define JJY_CLOCKSTATS_MESSAGE_DELAY_ADJUST      "* Delay adjustment : %d mSec. ( valid=%hd/%d )"
+#define JJY_CLOCKSTATS_MESSAGE_DELAY_UNADJUST    "* Delay adjustment : None ( valid=%hd/%d )"
 
-#define JJY_CLOCKSTATS_MESSAGE_UNEXPECTED_REPLY         "# Unexpected reply : [%s]"
-#define JJY_CLOCKSTATS_MESSAGE_INVALID_LENGTH           "# Invalid length : length=%d"
-#define JJY_CLOCKSTATS_MESSAGE_TOO_MANY_REPLY           "# Too many reply : count=%d"
-#define JJY_CLOCKSTATS_MESSAGE_INVALID_REPLY            "# Invalid reply : [%s]"
-#define JJY_CLOCKSTATS_MESSAGE_SLOW_REPLY_2             "# Slow reply : timestamp=%d, %d"
+#define JJY_CLOCKSTATS_MESSAGE_UNEXPECTED_REPLY  "# Unexpected reply : [%s]"
+#define JJY_CLOCKSTATS_MESSAGE_INVALID_LENGTH    "# Invalid length : length=%d"
+#define JJY_CLOCKSTATS_MESSAGE_TOO_MANY_REPLY    "# Too many reply : count=%u"
+#define JJY_CLOCKSTATS_MESSAGE_INVALID_REPLY     "# Invalid reply : [%s]"
+#define JJY_CLOCKSTATS_MESSAGE_SLOW_REPLY_2   "# Slow reply : timestamp=%d, %d"
 /* UNUSED
- * #define      JJY_CLOCKSTATS_MESSAGE_SLOW_REPLY_3             "# Slow reply : timestamp=%d, %d, %d"
+ * #define      JJY_CLOCKSTATS_MESSAGE_SLOW_REPLY_3  "# Slow reply : timestamp=%d, %d, %d"
  */
 #define JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_DATE      "# Invalid date : rc=%d year=%d month=%d day=%d"
 #define JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME      "# Invalid time : rc=%d hour=%d minute=%d second=%d"
@@ -393,7 +393,11 @@ struct  refclock refclock_jjy = {
 // Debug print macro
 
 #ifdef  DEBUG
-#define DEBUG_PRINTF_JJY_RECEIVE(sFunc,iLen)    { if ( debug ) { printf ( "refclock_jjy.c : %s : iProcessState=%d bLineError=%d iCommandSeq=%d iLineCount=%d iTimestampCount=%d iLen=%d\n", sFunc, up->iProcessState, up->bLineError, up->iCommandSeq, up->iLineCount, up->iTimestampCount, iLen ) ; } }
+#define DEBUG_PRINTF_JJY_RECEIVE(sFunc,iLen)    { if ( debug ) {         \
+     printf("refclock_jjy.c : %s : iProcessState=%d bLineError=%d "      \
+            "iCommandSeq=%d iLineCount=%d iTimestampCount=%u iLen=%d\n", \
+            sFunc, up->iProcessState, up->bLineError, up->iCommandSeq,   \
+            up->iLineCount, up->iTimestampCount, iLen); } }
 #else
 #define DEBUG_PRINTF_JJY_RECEIVE(sFunc,iLen)
 #endif
@@ -426,7 +430,7 @@ jjy_start ( int unit, struct peer *peer )
         up->bReceiveFlag = false ;
         up->iCommandSeq = 0 ;
         up->iLineCount = 0 ;
-        up->iTimestampCount = 0 ;
+        up->iTimestampCount = 0;
         up->bWaitBreakString = false ;
         up->iRawBufLen = up->iLineBufLen = up->iTextBufLen = 0 ;
         up->bSkipCntrlCharOnly = true ;
@@ -539,8 +543,9 @@ jjy_receive ( struct recvbuf *rbufp )
 
         l_fp    tRecvTimestamp;         // arrival timestamp
         int     rc ;
-        char    *pBuf, sLogText [ MAX_LOGTEXT ] ;
-        int     i, j, iReadRawBuf, iBreakPosition ;
+        char    *pBuf, sLogText [MAX_LOGTEXT];
+        int i, j, iReadRawBuf, iBreakPosition;
+        unsigned u;
 
         /*
          * Initialize pointers and read the timecode and timestamp
@@ -554,34 +559,37 @@ jjy_receive ( struct recvbuf *rbufp )
          */
         if ( up->linediscipline == LDISC_RAW ) {
 
-                pp->lencode  = (int)refclock_gtraw ( rbufp, pp->a_lastcode, BMAX-1, &tRecvTimestamp ) ;
-                // 3rd argument can be BMAX, but the coverity scan tool claim "Memory - corruptions  (OVERRUN)"
-                // "a_lastcode" is defined as "char a_lastcode[BMAX]" in the ntp_refclock.h
-                // To avoid its claim, pass the value BMAX-1.
+                pp->lencode = refclock_gtraw(rbufp, pp->a_lastcode,
+                                             BMAX - 1, &tRecvTimestamp ) ;
+                /* 3rd argument can be BMAX, but the coverity scan tool
+                 * claim "Memory - corruptions  (OVERRUN)"
+                 * "a_lastcode" is defined as "char a_lastcode[BMAX]" in
+                 * the ntp_refclock.h
+                 * To avoid its claim, pass the value BMAX - 1. */
 
                 /*
                  * Append received characters to temporary buffer
                  */
-                for ( i = 0 ;
-                      i < pp->lencode && up->iRawBufLen < MAX_RAWBUF - 2 ;
-                      i ++ , up->iRawBufLen ++ ) {
-                        up->sRawBuf[up->iRawBufLen] = pp->a_lastcode[i] ;
+                for (u = 0 ;
+                     u < pp->lencode &&
+                     up->iRawBufLen < MAX_RAWBUF - 2;
+                     u++ , up->iRawBufLen ++ ) {
+                        up->sRawBuf[up->iRawBufLen] = pp->a_lastcode[u] ;
                 }
                 up->sRawBuf[up->iRawBufLen] = 0 ;
 
 
         } else {
-
-                pp->lencode  = refclock_gtlin ( rbufp, pp->a_lastcode, BMAX, &tRecvTimestamp ) ;
-
+                pp->lencode  = refclock_gtlin (rbufp, pp->a_lastcode,
+                                               BMAX, &tRecvTimestamp);
         }
 #ifdef DEBUG
-        printf( "\nrefclock_jjy.c : %s : Len=%d  ", sFunctionName, pp->lencode ) ;
-        for ( i = 0 ; i < pp->lencode ; i ++ ) {
-                if ( iscntrl( pp->a_lastcode[i] & 0x7F ) ) {
-                        printf("<x%02X>", (unsigned)(pp->a_lastcode[i] & 0xFF));
+        printf( "\nrefclock_jjy.c : %s : Len=%u  ", sFunctionName, pp->lencode);
+        for (u = 0 ; u < pp->lencode; u++ ) {
+                if (iscntrl(pp->a_lastcode[u] & 0x7F ) ) {
+                        printf("<x%02X>", (unsigned)(pp->a_lastcode[u] & 0xFF));
                 } else {
-                        printf( "%c", pp->a_lastcode[i] ) ;
+                        printf( "%c", pp->a_lastcode[u] ) ;
                 }
         }
         printf( "\n" ) ;
@@ -622,59 +630,64 @@ jjy_receive ( struct recvbuf *rbufp )
         for ( ; up->iProcessState == JJY_PROCESS_STATE_RECEIVE ; ) {
 
                 if ( up->linediscipline == LDISC_RAW ) {
-
-                        if ( up->bWaitBreakString ) {
-                                iBreakPosition = getRawDataBreakPosition( up, iReadRawBuf ) ;
-                                if ( iBreakPosition == -1 ) {
-                                        // Break string have not come yet
-                                        if ( up->iRawBufLen < MAX_RAWBUF - 2
-                                          || iReadRawBuf > 0 ) {
-                                                // Temporary buffer is not full
-                                                break ;
-                                        } else {
-                                                // Temporary buffer is full
-                                                iBreakPosition = up->iRawBufLen - 1 ;
-                                        }
-                                }
-                        } else {
-                                iBreakPosition = up->iRawBufLen - 1 ;
-                        }
-
-                        // Copy characters from temporary buffer to process buffer
-                        up->iLineBufLen = up->iTextBufLen = 0 ;
-                        for ( i = iReadRawBuf ; i <= iBreakPosition ; i ++ ) {
-
-                                // Copy all characters
-                                up->sLineBuf[up->iLineBufLen] = up->sRawBuf[i] ;
-                                up->iLineBufLen ++ ;
-
-                                // Copy printable characters
-                                if ( ! iscntrl( (int)up->sRawBuf[i] ) ) {
-                                        up->sTextBuf[up->iTextBufLen] = up->sRawBuf[i] ;
-                                        up->iTextBufLen ++ ;
-                                }
-
-                        }
-                        up->sLineBuf[up->iLineBufLen] = 0 ;
-                        up->sTextBuf[up->iTextBufLen] = 0 ;
-#ifdef DEBUG
-                        printf( "refclock_jjy.c : %s : up->iLineBufLen=%d up->iTextBufLen=%d\n",
-                                 sFunctionName, up->iLineBufLen, up->iTextBufLen ) ;
-#endif
-
-                        if ( up->bSkipCntrlCharOnly && up->iTextBufLen == 0 ) {
-#ifdef DEBUG
-                                printf( "refclock_jjy.c : %s : Skip cntrl char only : up->iRawBufLen=%d iReadRawBuf=%d iBreakPosition=%d\n",
-                                         sFunctionName, up->iRawBufLen, iReadRawBuf, iBreakPosition ) ;
-#endif
-                                if ( iBreakPosition + 1 < up->iRawBufLen ) {
-                                        iReadRawBuf = iBreakPosition + 1 ;
-                                        continue ;
-                                } else {
+                    if ( up->bWaitBreakString ) {
+                        iBreakPosition = getRawDataBreakPosition(up,
+                                                                 iReadRawBuf);
+                        if ( iBreakPosition == -1 ) {
+                                // Break string have not come yet
+                                if (up->iRawBufLen < MAX_RAWBUF - 2 ||
+                                    iReadRawBuf > 0 ) {
+                                        // Temporary buffer is not full
                                         break ;
+                                } else {
+                                        // Temporary buffer is full
+                                        iBreakPosition = up->iRawBufLen - 1;
                                 }
-
                         }
+                    } else {
+                        iBreakPosition = up->iRawBufLen - 1;
+                    }
+
+                    /* Copy characters from temporary buffer to
+                     * process buffer */
+                    up->iLineBufLen = up->iTextBufLen = 0 ;
+                    for (i = iReadRawBuf ; i <= iBreakPosition; i++) {
+
+                        // Copy all characters
+                        up->sLineBuf[up->iLineBufLen] = up->sRawBuf[i];
+                        up->iLineBufLen ++ ;
+
+                        // Copy printable characters
+                        if ( ! iscntrl( (int)up->sRawBuf[i] ) ) {
+                                up->sTextBuf[up->iTextBufLen] = up->sRawBuf[i];
+                                up->iTextBufLen ++ ;
+                        }
+
+                    }
+                    up->sLineBuf[up->iLineBufLen] = 0 ;
+                    up->sTextBuf[up->iTextBufLen] = 0 ;
+#ifdef DEBUG
+                    printf("refclock_jjy.c : %s : up->iLineBufLen=%d "
+                           " up->iTextBufLen=%d\n",
+                           sFunctionName, up->iLineBufLen, up->iTextBufLen);
+#endif
+
+                    if ( up->bSkipCntrlCharOnly && up->iTextBufLen == 0 ) {
+#ifdef DEBUG
+                        printf("refclock_jjy.c : %s : Skip cntrl char "
+                               "only : up->iRawBufLen=%d iReadRawBuf=%d "
+                               " iBreakPosition=%d\n",
+                                 sFunctionName, up->iRawBufLen,
+                                 iReadRawBuf, iBreakPosition ) ;
+#endif
+                        if ( iBreakPosition + 1 < up->iRawBufLen ) {
+                                iReadRawBuf = iBreakPosition + 1;
+                                continue ;
+                        } else {
+                                break ;
+                        }
+
+                    }
 
                 }
 
@@ -1164,35 +1177,40 @@ jjy_receive_tristate_jjy01 ( struct recvbuf *rbufp )
         case TS_JJY01_COMMAND_NUMBER_TIME :  // HH:MM:SS
         case TS_JJY01_COMMAND_NUMBER_STIM :  // HH:MM:SS
 
-                if ( up->iTimestampCount >= 2 ) {
+                if (up->iTimestampCount >= 2) {
                         // Too many time reply
                         snprintf( sLog, sizeof(sLog),
                                   JJY_CLOCKSTATS_MESSAGE_TOO_MANY_REPLY,
-                                  up->iTimestampCount ) ;
+                                  up->iTimestampCount) ;
                         jjy_write_clockstats( peer, JJY_CLOCKSTATS_MARK_ERROR, sLog ) ;
                         up->bLineError = true ;
                         return JJY_RECEIVE_ERROR ;
                 }
 
-                rc = sscanf ( pBuf, "%2d:%2d:%2d",
-                              &up->hour, &up->minute, &up->second ) ;
+                rc = sscanf (pBuf, "%2d:%2d:%2d",
+                             &up->hour, &up->minute, &up->second ) ;
 
-                if ( rc != 3 || up->hour > 23 || up->minute > 59 ||
-                     up->second > 60 ) {
+                if (rc != 3 ||
+                    up->hour > 23 ||
+                    up->minute > 59 ||
+                    up->second > 60) {
                         // Invalid time
-                        snprintf( sLog, sizeof(sLog),
-                                  JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME,
-                                  rc, up->hour, up->minute, up->second ) ;
-                        jjy_write_clockstats( peer, JJY_CLOCKSTATS_MARK_ERROR, sLog ) ;
-                        up->bLineError = true ;
-                        return JJY_RECEIVE_ERROR ;
+                        snprintf(sLog, sizeof(sLog),
+                                 JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME,
+                                 rc, up->hour, up->minute, up->second);
+                        jjy_write_clockstats(peer, JJY_CLOCKSTATS_MARK_ERROR,
+                                             sLog);
+                        up->bLineError = true;
+                        return JJY_RECEIVE_ERROR;
+                }
+                if (up->iTimestampCount < MAX_TIMESTAMP) {
+                    up->iTimestamp[up->iTimestampCount] =
+                        up->hour * 3600 + up->minute * 60 + up->second;
+
+                    up->iTimestampCount++;
                 }
 
-                up->iTimestamp[up->iTimestampCount] = ( up->hour * 60 + up->minute ) * 60 + up->second ;
-
-                up->iTimestampCount++ ;
-
-                up->msecond = 0 ;
+                up->msecond = 0;
 
                 break ;
 
@@ -1243,7 +1261,7 @@ jjy_receive_tristate_jjy01 ( struct recvbuf *rbufp )
 
         }
 
-        if ( up->iTimestampCount == 2 ) {
+        if (up->iTimestampCount == 2) {
                 // Process date and time
 
                 if ( up->iTimestamp[1] - 2 <= up->iTimestamp[0]
@@ -1314,7 +1332,7 @@ jjy_poll_tristate_jjy01  ( int unit, struct peer *peer )
         up = pp->unitptr ;
 
         up->bLineError = false ;
-        up->iTimestampCount = 0 ;
+        up->iTimestampCount = 0;
 
         if ( ( pp->sloppyclockflag & CLK_FLAG1 ) == 0 ) {
                 // Skip "dcst" and "stus" commands
@@ -2081,12 +2099,13 @@ jjy_receive_tristate_gpsclock01 ( struct recvbuf *rbufp )
 
         case TS_GPS01_COMMAND_NUMBER_TIME :  // HH:MM:SS
 
-                if ( up->iTimestampCount >= 2 ) {
+                if (up->iTimestampCount >= 2) {
                         // Too many time reply
-                        snprintf( sLog, sizeof(sLog),
-                                  JJY_CLOCKSTATS_MESSAGE_TOO_MANY_REPLY,
-                                  up->iTimestampCount ) ;
-                        jjy_write_clockstats( peer, JJY_CLOCKSTATS_MARK_ERROR, sLog ) ;
+                        snprintf(sLog, sizeof(sLog),
+                                 JJY_CLOCKSTATS_MESSAGE_TOO_MANY_REPLY,
+                                 up->iTimestampCount);
+                        jjy_write_clockstats(peer, JJY_CLOCKSTATS_MARK_ERROR,
+                                             sLog);
                         up->bLineError = true ;
                         return JJY_RECEIVE_ERROR ;
                 }
@@ -2097,17 +2116,21 @@ jjy_receive_tristate_gpsclock01 ( struct recvbuf *rbufp )
                 if ( rc != 3
                   || up->hour > 23 || up->minute > 59 || up->second > 60 ) {
                         // Invalid time
-                        snprintf( sLog, sizeof(sLog),
-                                  JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME,
-                                  rc, up->hour, up->minute, up->second ) ;
-                        jjy_write_clockstats( peer, JJY_CLOCKSTATS_MARK_ERROR, sLog ) ;
-                        up->bLineError = true ;
-                        return JJY_RECEIVE_ERROR ;
+                        snprintf(sLog, sizeof(sLog),
+                                 JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME,
+                                 rc, up->hour, up->minute, up->second ) ;
+                        jjy_write_clockstats(peer, JJY_CLOCKSTATS_MARK_ERROR,
+                                             sLog ) ;
+                        up->bLineError = true;
+                        return JJY_RECEIVE_ERROR;
                 }
 
-                up->iTimestamp[up->iTimestampCount] = ( up->hour * 60 + up->minute ) * 60 + up->second ;
+                if (up->iTimestampCount < MAX_TIMESTAMP) {
+                    up->iTimestamp[up->iTimestampCount] =
+                        up->hour * 3600 + up->minute * 60 + up->second;
 
-                up->iTimestampCount++ ;
+                    up->iTimestampCount++;
+                }
 
                 up->msecond = 0 ;
 
@@ -2115,16 +2138,21 @@ jjy_receive_tristate_gpsclock01 ( struct recvbuf *rbufp )
 
         case TS_GPS01_COMMAND_NUMBER_STUS :
 
-                if ( strncmp( pBuf, TS_GPS01_REPLY_STUS_RTC, TS_GPS01_REPLY_LENGTH_STUS ) == 0
-                  || strncmp( pBuf, TS_GPS01_REPLY_STUS_GPS, TS_GPS01_REPLY_LENGTH_STUS ) == 0
-                  || strncmp( pBuf, TS_GPS01_REPLY_STUS_UTC, TS_GPS01_REPLY_LENGTH_STUS ) == 0
-                  || strncmp( pBuf, TS_GPS01_REPLY_STUS_PPS, TS_GPS01_REPLY_LENGTH_STUS ) == 0 ) {
+                if (strncmp(pBuf, TS_GPS01_REPLY_STUS_RTC,
+                             TS_GPS01_REPLY_LENGTH_STUS ) == 0 ||
+                    strncmp(pBuf, TS_GPS01_REPLY_STUS_GPS,
+                             TS_GPS01_REPLY_LENGTH_STUS ) == 0 ||
+                    strncmp(pBuf, TS_GPS01_REPLY_STUS_UTC,
+                             TS_GPS01_REPLY_LENGTH_STUS ) == 0 ||
+                    strncmp(pBuf, TS_GPS01_REPLY_STUS_PPS,
+                             TS_GPS01_REPLY_LENGTH_STUS ) == 0 ) {
                         // Good
                 } else {
-                        snprintf( sLog, sizeof(sLog),
+                        snprintf(sLog, sizeof(sLog),
                                   JJY_CLOCKSTATS_MESSAGE_INVALID_REPLY,
                                   pBuf ) ;
-                        jjy_write_clockstats( peer, JJY_CLOCKSTATS_MARK_ERROR, sLog ) ;
+                        jjy_write_clockstats(peer, JJY_CLOCKSTATS_MARK_ERROR,
+                                             sLog);
                         up->bLineError = true ;
                         return JJY_RECEIVE_ERROR ;
                 }
@@ -2142,12 +2170,13 @@ jjy_receive_tristate_gpsclock01 ( struct recvbuf *rbufp )
 
         }
 
-        if ( up->iTimestampCount == 2 ) {
+        if (up->iTimestampCount == 2) {
                 // Process date and time
 
                 if ( up->iTimestamp[1] - 2 <= up->iTimestamp[0]
                   && up->iTimestamp[0]     <= up->iTimestamp[1] ) {
-                        // 3 commands (time,date,stim) was executed in two seconds
+                        /* 3 commands (time,date,stim) was executed
+                         & in two seconds */
                         jjy_synctime( peer, pp, up ) ;
                         return JJY_RECEIVE_DONE ;
                 } else if ( up->iTimestamp[0] > up->iTimestamp[1] ) {
@@ -2219,7 +2248,7 @@ jjy_poll_tristate_gpsclock01 ( int unit, struct peer *peer )
         pp = peer->procptr ;
         up = pp->unitptr ;
 
-        up->iTimestampCount = 0 ;
+        up->iTimestampCount = 0;
 
         if ( ( pp->sloppyclockflag & CLK_FLAG1 ) == 0 ) {
                 // Skip "stus" command
@@ -2979,7 +3008,7 @@ teljjy_control ( struct peer *peer, struct refclockproc *pp, struct jjyunit *up 
                         up->iTeljjyStateTimer = 0 ;
                         up->bLineError = false ;
                         up->iClockCommandSeq = 0 ;
-                        up->iTimestampCount = 0 ;
+                        up->iTimestampCount = 0;
                         up->iLoopbackCount = 0 ;
                         for ( i = 0 ; i < MAX_LOOPBACK ; i ++ ) {
                                 up->bLoopbackTimeout[i] = false ;
@@ -3241,7 +3270,7 @@ teljjy_login_conn ( struct peer *peer, struct refclockproc *pp, struct jjyunit *
 
         up->bLineError = false ;
         up->iClockCommandSeq = 0 ;
-        up->iTimestampCount = 0 ;
+        up->iTimestampCount = 0;
         up->iLoopbackCount = 0 ;
         for ( i = 0 ; i < MAX_LOOPBACK ; i ++ ) {
                 up->bLoopbackTimeout[i] = false ;
@@ -3511,37 +3540,50 @@ teljjy_conn_data ( struct peer *peer, struct refclockproc *pp, struct jjyunit *u
                  && teljjy_command_sequence[up->iClockCommandSeq].iExpectedReplyType == TELJJY_REPLY_TIME ) {
                 // TIME<CR> -> HHMMSS<CR> ( 3 times on second )
 
-                rc = sscanf ( pBuf, "%2d%2d%2d", &up->hour, &up->minute, &up->second ) ;
+                rc = sscanf (pBuf, "%2d%2d%2d",
+                             &up->hour, &up->minute, &up->second);
 
-                if ( rc != 3 || up->hour > 23 || up->minute > 59 || up->second > 60 ) {
+                if (rc != 3 ||
+                    up->hour > 23 ||
+                    up->minute > 59 ||
+                    up->second > 60 ) {
                         // Invalid time
-                        snprintf( sLog, sizeof(sLog),
-                                  JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME,
-                                  rc, up->hour, up->minute, up->second ) ;
-                        jjy_write_clockstats( peer, JJY_CLOCKSTATS_MARK_ERROR, sLog ) ;
+                        snprintf(sLog, sizeof(sLog),
+                                 JJY_CLOCKSTATS_MESSAGE_SSCANF_INVALID_TIME,
+                                 rc, up->hour, up->minute, up->second);
+                        jjy_write_clockstats(peer,
+                                             JJY_CLOCKSTATS_MARK_ERROR, sLog);
                         up->bLineError = true ;
                 }
-                up->iTimestamp[up->iTimestampCount] = ( up->hour * 60 + up->minute ) * 60 + up->second ;
 
-                up->iTimestampCount++ ;
+                if (MAX_TIMESTAMP <= up->iTimestampCount) {
+                    up->bLineError = true;
+                } else {
+                    up->iTimestamp[up->iTimestampCount] =
+                       up->hour * 3600 + up->minute * 60 + up->second;
+                    up->iTimestampCount++;
+                }
 
-                if ( up->iTimestampCount == 6 && ! up->bLineError ) {
+                if (MAX_TIMESTAMP == up->iTimestampCount &&
+                    !up->bLineError) {
 #ifdef DEBUG
-                        printf( "refclock_jjy.c : teljjy_conn_data : bLineError=%d iTimestamp=%d, %d, %d\n",
+                        printf("refclock_jjy.c : teljjy_conn_data : "
+                               " bLineError=%d iTimestamp=%d, %d, %d\n",
                                 up->bLineError,
-                                up->iTimestamp[3], up->iTimestamp[4], up->iTimestamp[5] ) ;
+                                up->iTimestamp[3], up->iTimestamp[4],
+                                up->iTimestamp[5] ) ;
 #endif
                         bAdjustment = true ;
 
-                        if ( peer->cfg.mode == 100 ) {
+                        if (peer->cfg.mode == 100) {
                                 // subtype=100
                                 up->msecond = 0 ;
                         } else {
                                 // subtype=101 to 110
-                                up->msecond = teljjy_getDelay( peer, up ) ;
-                                if (up->msecond < 0 ) {
-                                        up->msecond = 0 ;
-                                        bAdjustment = false ;
+                                up->msecond = teljjy_getDelay(peer, up);
+                                if (up->msecond < 0) {
+                                        up->msecond = 0;
+                                        bAdjustment = false;
                                 }
                         }
 
