@@ -336,7 +336,7 @@ void nts_ke_accept_fail(NTS_Server_Info *nsi,
                 msg = "Connection reset";
                 break;
               }
-              // fall through
+              FALLTHRU
             default:
               ntp_strerror_r(errno, nsi->errbuf, sizeof(nsi->errbuf));
               snprintf(buff, sizeof(buff), "code %d, errno=>%d, %s",
@@ -375,8 +375,22 @@ void nts_ke_request(NTS_Server_Info *nsi, SSL *ssl) {
         enum process_result result;
 
         bytes_read = nts_ssl_read(ssl, buff, sizeof(buff), &nsi->errtxt);
-        if (0 >= bytes_read)
+        if (0 > bytes_read)
                 return;
+        if (0 == bytes_read) {
+                // RFC 8915 4.1.3: Bad Request on timeout without a request.
+                // Keep the read's error text for the log.
+                const char *werrtxt = NULL;
+
+                buf.next = buff;
+                buf.left = sizeof(buff);
+                ke_append_record_uint16(&buf, NTS_CRITICAL+nts_error,
+                  nts_bad_request);
+                ke_append_record_null(&buf, NTS_CRITICAL+nts_end_of_message);
+                used = sizeof(buff)-buf.left;
+                nts_ssl_write(ssl, buff, used, &werrtxt);
+                return;
+        }
 
         buf.next = buff;
         buf.left = bytes_read;
@@ -403,6 +417,8 @@ void nts_ke_request(NTS_Server_Info *nsi, SSL *ssl) {
                             NTS_CRITICAL+nts_next_protocol_negotiation);
                     }
                 }
+                // RFC 8915 4.1.2, 4.1.5: if nothing matched, the
+                // empty records above are the answer, without an error
                 switch (result) {
                   case Process_Critical:
                     ke_append_record_uint16(&buf, NTS_CRITICAL+nts_error,
@@ -412,6 +428,8 @@ void nts_ke_request(NTS_Server_Info *nsi, SSL *ssl) {
                     ke_append_record_uint16(&buf, NTS_CRITICAL+nts_error,
                       nts_bad_request);
                     break;
+                  case Process_NoMatch:
+                    FALLTHRU
                   case Process_OK:  // keep compiler happy
                     break;
                   default:
@@ -551,6 +569,8 @@ bool create_listener6(int port) {
 }
 
 enum process_result nts_ke_process_receive(NTS_Server_Info *nsi, BufCtl *buf) {
+        bool npn_empty = false, aead_empty = false;
+
         nsi->aead = NO_AEAD;
         nsi->saw_next_protocol = false;
         nsi->next_protocol_matched = false;
@@ -598,6 +618,7 @@ enum process_result nts_ke_process_receive(NTS_Server_Info *nsi, BufCtl *buf) {
                                 return Process_Error;
                         }
                         nsi->saw_next_protocol = true;
+                        npn_empty = (0 == length);
                         for (int i=0; i<length; i+=sizeof(uint16_t)) {
                                 data = next_uint16(buf);
                                 if (data == nts_protocol_NTP) {
@@ -617,6 +638,7 @@ enum process_result nts_ke_process_receive(NTS_Server_Info *nsi, BufCtl *buf) {
                                 return Process_Error;
                         }
                         nsi->saw_aead = true;
+                        aead_empty = (0 == length);
                         for (int i=0; i<length; i+=sizeof(uint16_t)) {
                                 data = next_uint16(buf);
 // FIXME: config option, need bitmap or ???
@@ -648,19 +670,46 @@ enum process_result nts_ke_process_receive(NTS_Server_Info *nsi, BufCtl *buf) {
                                 nsi->errtxt = "NPN Missing";
                                 return Process_Error;
                         }
+                        // RFC 8915 4.1.2: the request lists at least one
+                        if (npn_empty) {
+                                nsi->errtxt = "NPN Empty";
+                                return Process_Error;
+                        }
                         if (!nsi->next_protocol_matched) {
                                 nsi->errtxt = "NPN No match";
-                                return Process_Error;
+                                return Process_NoMatch;
                         }
                         if (!nsi->saw_aead) {
                                 nsi->errtxt = "AEAD Missing";
                                 return Process_Error;
                         }
-                        if (NO_AEAD == nsi->aead) {
-                                nsi->errtxt = "AEAD No match";
+                        // RFC 8915 4.1.5: the request lists at least one
+                        if (aead_empty) {
+                                nsi->errtxt = "AEAD Empty";
                                 return Process_Error;
                         }
+                        if (NO_AEAD == nsi->aead) {
+                                nsi->errtxt = "AEAD No match";
+                                return Process_NoMatch;
+                        }
                         return Process_OK;
+                    case nts_warning:
+                        FALLTHRU
+                    case nts_new_cookie:
+                        // RFC 8915 4.1.4, 4.1.6: clients MUST NOT send these
+                        snprintf(nsi->errbuf, sizeof(nsi->errbuf),
+                                "Client sent record type %d", type);
+                        nsi->errtxt = nsi->errbuf;
+                        return Process_Error;
+                    case nts_server_negotiation:
+                        FALLTHRU
+                    case nts_port_negotiation:
+                        // RFC 8915 4.1.7, 4.1.8: honoring these is
+                        // optional, and a client SHOULD NOT, but may, set
+                        // the Critical Bit
+                        buf->next += length;
+                        buf->left -= length;
+                        break;
                     default:
                         if (critical) {
                           // This only logs the first one from a connection

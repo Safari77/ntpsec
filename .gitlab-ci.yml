@@ -27,7 +27,6 @@ pages:
     - gitlab-org
 
 include:
-  - template: Code-Quality.gitlab-ci.yml
   - template: SAST.gitlab-ci.yml
   - local: '.gitlab-opttest-ci.yml'
   - local: '.gitlab-docker-ci.yml'
@@ -39,6 +38,12 @@ include:
   tags:
     - gitlab-org
 
+.refclocks:
+  <<: *job_definition
+  image: $IMAGE_REGISTRY/$DISTRO
+  script:
+    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
+
 prisoner-0:
   <<: *job_definition
   image: $IMAGE_REGISTRY/alpine
@@ -47,6 +52,33 @@ prisoner-0:
     - DESTDIR=prison python3 ./waf install uninstall
     - DESTDIR=build/prison python3 ./waf install uninstall
     - DESTDIR=../prison python3 ./waf install uninstall
+
+refclocks:
+  extends: .refclocks
+  parallel:
+    matrix:
+      - DISTRO: [
+          alpine,
+          centos-latest,
+          debian-stable,
+          debian-stable-mdns,
+          debian-testing,
+          fedora-latest,
+          rocky,
+          ubuntu-latest,
+          ubuntu-rolling,
+        ]
+
+refclocks-unstable:
+  extends: .refclocks
+  allow_failure: true
+  parallel:
+    matrix:
+      - DISTRO: [
+          alpine-edge,
+          debian-unstable,
+          ubuntu-devel,
+        ]
 
 alpine-basic:
   <<: *job_definition
@@ -57,12 +89,6 @@ alpine-basic:
     - python3 ./waf install
     - python3 ./waf uninstall
 
-alpine-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build
-
 alpine-edge-basic:
   allow_failure: true
   <<: *job_definition
@@ -72,26 +98,6 @@ alpine-edge-basic:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
     - python3 ./waf install
     - python3 ./waf uninstall
-
-alpine-edge-refclocks:
-  allow_failure: true
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine-edge
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build
-
-# AsciiDoc-3-Fedora:
-#   <<: *job_definition
-#   image: fedora
-#   script:
-#     - yum -y install bison gcc openssl-devel libcap-devel pps-tools-devel python3-devel wget libxslt docbook-style-xsl
-#     - mkdir asciidoc3
-#     - wget https://asciidoc3.org/download/AsciiDoc3_linux_latest.tar.gz
-#     - tar -xpvf AsciiDoc3_linux_latest.tar.gz -C asciidoc3
-#     - ln -sv src/a2x3.py asciidoc3/a2x3
-#     - ln -sv src/asciidoc3.py asciidoc3/asciidoc3
-#     - asciidoc3/asciidoc3 --version || echo -n
-#     - PATH="$PWD/asciidoc3:$PATH" python3 ./waf configure --enable-warnings --enable-Werror --enable-doc --enable-manpage build
 
 AsciiDoc-py3-Alpine:
   <<: *job_definition
@@ -106,14 +112,6 @@ AsciiDoc-no:
   script:
     - apk update && apk add gcc bison musl-dev openssl-dev libcap-dev python3-dev pythonispython3
     - python ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build
-
-AsciiDoc-classic3-Debian-Old:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/debian-oldstable
-  script:
-    - apt-get update
-    - DEBIAN_FRONTEND="noninteractive" apt-get install -y python3-dev asciidoc-base
-    - python3 ./waf configure --enable-warnings --enable-Werror --enable-doc --enable-manpage build --disable-nts --pyshebang "/usr/bin/env python3"
 
 debian-oldstable-basic:
   <<: *job_definition
@@ -139,12 +137,6 @@ debian-stable-basic:
     - python3 ./waf install
     - python3 ./waf uninstall
 
-debian-stable-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/debian-stable
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
-
 debian-testing-basic:
   <<: *job_definition
   image: $IMAGE_REGISTRY/debian-testing
@@ -153,12 +145,6 @@ debian-testing-basic:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
     - python3 ./waf install
     - python3 ./waf uninstall
-
-debian-testing-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/debian-testing
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
 
 debian-unstable-basic:
   allow_failure: true
@@ -170,13 +156,6 @@ debian-unstable-basic:
     - python3 ./waf install
     - python3 ./waf uninstall
 
-debian-unstable-refclocks:
-  allow_failure: true
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/debian-unstable
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
-
 ubuntu-latest-basic:
   <<: *job_definition
   image: $IMAGE_REGISTRY/ubuntu-latest
@@ -185,12 +164,6 @@ ubuntu-latest-basic:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
     - python3 ./waf install
     - python3 ./waf uninstall
-
-ubuntu-latest-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/ubuntu-latest
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
 
 ubuntu-devel-basic:
   <<: *job_definition
@@ -203,13 +176,6 @@ ubuntu-devel-basic:
     - python3 ./waf install
     - python3 ./waf uninstall
 
-ubuntu-devel-refclocks:
-  <<: *job_definition
-  allow_failure: true
-  image: $IMAGE_REGISTRY/ubuntu-devel
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
-
 ubuntu-rolling-basic:
   <<: *job_definition
   image: $IMAGE_REGISTRY/ubuntu-rolling
@@ -218,12 +184,6 @@ ubuntu-rolling-basic:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
     - python3 ./waf install
     - python3 ./waf uninstall
-
-ubuntu-rolling-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/ubuntu-rolling
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
 
 freebsd-basic:
   <<: *job_definition
@@ -255,12 +215,6 @@ centos-latest-basic:
     - python3 ./waf install
     - python3 ./waf uninstall
 
-centos-latest-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/centos-latest
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
-
 rocky-basic:
   <<: *job_definition
   image: $IMAGE_REGISTRY/rocky
@@ -269,12 +223,6 @@ rocky-basic:
     - python3 ./waf install
     - python3 ./waf uninstall
 
-rocky-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/rocky
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
-
 fedora-latest-basic:
   <<: *job_definition
   image: $IMAGE_REGISTRY/fedora-latest
@@ -282,12 +230,6 @@ fedora-latest-basic:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
     - python3 ./waf install
     - python3 ./waf uninstall
-
-fedora-latest-refclocks:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/fedora-latest
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build
 
 python3:
   <<: *job_definition
@@ -351,11 +293,13 @@ debian-stable-mDNS-basic:
   script:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage build --pyshebang "/usr/bin/env python3"
 
-debian-stable-mDNS-refclocks:
+debian-stable-ubsan:
   <<: *job_definition
-  image: $IMAGE_REGISTRY/debian-stable-mdns
+  image: $IMAGE_REGISTRY/debian-stable
+  variables:
+    UBSAN_OPTIONS: print_stacktrace=1
   script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all build --pyshebang "/usr/bin/env python3"
+    - python3 ./waf configure --disable-doc --disable-manpage --cflags=-fsanitize=undefined --cflags=-fno-sanitize-recover=undefined --cflags=-g --ldflags=-fsanitize=undefined build
 
 cross-armhf-build:
   allow_failure: true
@@ -446,11 +390,24 @@ feature-attic:
   script:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --enable-attic build
 
-feature-classic-mode:
+feature:
   <<: *job_definition
   image: $IMAGE_REGISTRY/alpine
+  parallel:
+    matrix:
+      - FEATURE: [
+          --enable-classic-mode,
+          --enable-debug,
+          --disable-debug-gdb,
+          --enable-debug-timing,
+          --disable-droproot,
+          --enable-early-droproot,
+          --enable-fuzz-harnesses,
+          --enable-leap-smear,
+          --enable-mssntp,
+        ]
   script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-classic-mode build
+    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all $FEATURE build
 
 feature-seccomp:
   <<: *job_definition
@@ -458,44 +415,46 @@ feature-seccomp:
   script:
     - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-seccomp build
 
-feature-debug:
+code-quality-c:
   <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
+  stage: test
+  image: $IMAGE_REGISTRY/quality-checks
   script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-debug build
+    - python3 ./waf configure --disable-doc --disable-manpage --refclock=all
+    - cppcheck --xml --enable=warning,style,performance,portability --max-configs=1 -I build/main -I include -i libaes_siv -i attic -i build -i tests/unity -i libjsmn . 2> cppcheck-report.xml
+    - cppcheck-codequality --input-file cppcheck-report.xml --output-file gl-code-quality-c.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality-c.json
 
-feature-disable-debug-gdb:
+code-quality-python:
   <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
+  stage: test
+  image: $IMAGE_REGISTRY/quality-checks
   script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --disable-debug-gdb build
+    - ruff check --output-format gitlab --output-file gl-code-quality-python.json . || true
+  artifacts:
+    reports:
+      codequality: gl-code-quality-python.json
 
-feature-debug-timing:
+code-quality-shell:
   <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
+  stage: test
+  image: $IMAGE_REGISTRY/quality-checks
   script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-debug-timing build
-
-feature-disable-droproot:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --disable-droproot build
-
-feature-early-droproot:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-early-droproot build
-
-feature-leap-smear:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-leap-smear build
-
-feature-mssntp:
-  <<: *job_definition
-  image: $IMAGE_REGISTRY/alpine
-  script:
-    - python3 ./waf configure --enable-warnings --enable-Werror --disable-doc --disable-manpage --refclock=all --enable-mssntp build
+    # shell scripts are the files whose first line is an sh-family shebang
+    - |
+      find . -path ./.git -prune -o -type f -print0 |
+        xargs -0 awk 'FNR==1 && /^#! ?\/(usr\/)?bin\/(env +)?(ba|da|k)?sh( |$)/ {print substr(FILENAME, 3)} {nextfile}' |
+        xargs shellcheck -S warning -f json1 > shellcheck.json || true
+    - |
+      jq -e '[.comments[] | {
+        description: .message,
+        check_name: "SC\(.code)",
+        fingerprint: "\(.file):\(.line):\(.column):SC\(.code)",
+        severity: ({error: "major", warning: "minor"}[.level]),
+        location: {path: .file, lines: {begin: .line, end: .endLine}}
+      }]' shellcheck.json > gl-code-quality-shell.json
+  artifacts:
+    reports:
+      codequality: gl-code-quality-shell.json
